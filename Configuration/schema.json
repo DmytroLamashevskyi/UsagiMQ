@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UsagiMQ Configuration Schema",
+  "type": "object",
+  "properties": {
+    "UsagiMQ": {
+      "type": "object",
+      "properties": {
+        "Connection": {
+          "type": "object",
+          "properties": {
+            "HostName": {
+              "type": "string",
+              "description": "RabbitMQ host address"
+            },
+            "Port": {
+              "type": "integer",
+              "description": "RabbitMQ port",
+              "default": 5672
+            },
+            "UserName": {
+              "type": "string",
+              "description": "RabbitMQ username"
+            },
+            "Password": {
+              "type": "string",
+              "description": "RabbitMQ password"
+            },
+            "RequestedHeartbeat": {
+              "type": "integer",
+              "description": "RabbitMQ connection heartbeat interval (seconds)",
+              "default": 60
+            },
+            "AutomaticRecoveryEnabled": {
+              "type": "boolean",
+              "description": "Enables automatic reconnection in case of failure",
+              "default": true
+            },
+            "NetworkRecoveryInterval": {
+              "type": "integer",
+              "description": "Time in milliseconds between reconnection attempts",
+              "default": 5000
+            },
+            "CommandsExchange": {
+              "type": "string",
+              "description": "RabbitMQ exchange for command messages"
+            },
+            "VirtualHost": {
+              "type": "string",
+              "description": "RabbitMQ virtual Host for service exchanges and queues"
+            },
+            "CommandsQueue": {
+              "type": "string",
+              "description": "RabbitMQ queue for command messages"
+            },
+            "EventsExchange": {
+              "type": "string",
+              "description": "RabbitMQ exchange for event notifications"
+            }
+          },
+          "required": [ "HostName", "UserName", "Password", "VirtualHost" ]
+        },
+        "DLX": {
+          "type": "object",
+          "properties": {
+            "Enabled": {
+              "type": "boolean",
+              "description": "Enable Dead Letter Exchange (DLX)",
+              "default": false
+            },
+            "Exchange": {
+              "type": "string",
+              "description": "DLX Exchange Name",
+              "default": "usagi.dlx"
+            },
+            "Queue": {
+              "type": "string",
+              "description": "DLX Queue Name",
+              "default": "usagi.dlx.queue"
+            },
+            "RoutingKey": {
+              "type": "string",
+              "description": "Routing key used for DLX messages",
+              "default": "failed"
+            }
+          }
+        },
+        "AutoCreateQueues": {
+          "type": "boolean",
+          "description": "Specifies if queues should be automatically created",
+          "default": true
+        }
+      }
+    }
+  }
+}
