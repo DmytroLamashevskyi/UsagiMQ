@@ -28,6 +28,8 @@ namespace UsagiMQ.Core.Consumers
         private readonly Dictionary<string, MethodInfo> _eventHandlers = new();
         private readonly Dictionary<string, IConnection> _connections = new();
         private readonly Dictionary<string, IChannel> _channels = new();
+        private readonly Dictionary<string, string> _exchangeToQueue = new();
+        private readonly Dictionary<string, string> _exchangeToVirtualHost = new();
 
         private readonly IConnection _defaultConnection;
         private readonly IChannel _defaultChannel;
@@ -92,7 +94,6 @@ namespace UsagiMQ.Core.Consumers
                 if(attribute == null) continue;
 
                 string virtualHost = attribute.VirtualHost;
-
                 if(!_connections.ContainsKey(virtualHost))
                 {
                     _connections[virtualHost] = await CreateConnectionForVirtualHost(virtualHost);
@@ -100,11 +101,11 @@ namespace UsagiMQ.Core.Consumers
                 }
 
                 var channel = _channels[virtualHost];
+                _exchangeToVirtualHost[attribute.ExchangeName] = virtualHost;
 
                 try
                 {
                     await channel.ExchangeDeclarePassiveAsync(attribute.ExchangeName);
-                    _logger.LogInformation($"[UsagiMQProcessor] Exchange '{attribute.ExchangeName}' found in VirtualHost '{virtualHost}'");
                 }
                 catch(Exception)
                 {
@@ -112,17 +113,31 @@ namespace UsagiMQ.Core.Consumers
                     continue;
                 }
 
-                var queueName = $"{attribute.ExchangeName}.{attribute.Action}";
-                var queueAutoDelete = attribute.ExchangeType == "fanout";
-                await channel.QueueDeclareAsync(queueName, durable: false, exclusive: true, autoDelete: queueAutoDelete);
-                await channel.QueueBindAsync(queueName, attribute.ExchangeName, routingKey: attribute.Action);
+                // 🟢 Проверяем, есть ли уже очередь для `Exchange`
+                if(!_exchangeToQueue.TryGetValue(attribute.ExchangeName, out var queueName))
+                {
+                    queueName = $"{attribute.ExchangeName}.queue";
+                    var queueAutoDelete = attribute.ExchangeType == "fanout";
+                    var routingKey = attribute.ExchangeType == "fanout" ? "" : attribute.Action; // 🟢 Используем Action как routingKey
+
+                    await channel.QueueDeclareAsync(queueName, durable: false, exclusive: true, autoDelete: queueAutoDelete);
+                    await channel.QueueBindAsync(queueName, attribute.ExchangeName, routingKey);
+
+                    _exchangeToQueue[attribute.ExchangeName] = queueName; // 🟢 Сохраняем очередь
+                    _logger.LogInformation($"[UsagiMQProcessor] Created queue '{queueName}' for Exchange '{attribute.ExchangeName}'");
+                }
+                else
+                {
+                    _logger.LogInformation($"[UsagiMQProcessor] Using existing queue '{queueName}' for Exchange '{attribute.ExchangeName}'");
+                }
 
                 var eventConsumer = new AsyncEventingBasicConsumer(channel);
                 eventConsumer.ReceivedAsync += async (model, args) => await ProcessEventMessageAsync(attribute.ExchangeName, args);
 
                 await channel.BasicConsumeAsync(queue: queueName, autoAck: false, consumer: eventConsumer);
-                _logger.LogInformation($"[UsagiMQProcessor] Subscribed to Exchange '{attribute.ExchangeName}' in VirtualHost '{virtualHost}'");
+                _logger.LogInformation($"[UsagiMQProcessor] Subscribed to Exchange '{attribute.ExchangeName}' with Queue '{queueName}' in VirtualHost '{virtualHost}'");
             }
+
         }
 
         /// <summary>
@@ -188,7 +203,7 @@ namespace UsagiMQ.Core.Consumers
 
                 _logger.LogInformation($"[UsagiMQProcessor] Processing event - Target: {message.Data.Target}, Action: {message.Action}");
 
-                string eventKey = $"{exchangeName}.{message.Action}";
+                string eventKey = $"{exchangeName}.{args.RoutingKey}";
 
                 if(!_eventHandlers.TryGetValue(eventKey, out var method))
                 {
