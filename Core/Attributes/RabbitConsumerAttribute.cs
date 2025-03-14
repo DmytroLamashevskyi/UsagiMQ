@@ -7,10 +7,6 @@
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
     public class RabbitConsumerAttribute : Attribute
     {
-        /// <summary>
-        /// Gets the name of the virtual host where the queue resides.
-        /// </summary>
-        public string VirtualHost { get; }
 
         /// <summary>
         /// Gets the name of the queue that this consumer will listen to.
@@ -22,9 +18,8 @@
         /// </summary>
         /// <param name="virtualHost">The virtual host in RabbitMQ.</param>
         /// <param name="queueName">The name of the queue to listen on.</param>
-        public RabbitConsumerAttribute(string virtualHost, string queueName)
+        public RabbitConsumerAttribute(string queueName)
         {
-            VirtualHost = virtualHost;
             QueueName = queueName;
         }
     }

@@ -20,11 +20,11 @@
                 return; // Stop processing if message is null
             }
 
-            if(!context.Headers.ContainsKey("X-Correlation-ID"))
-            {
-                Console.WriteLine("[ValidationMiddleware] Missing required header: X-Correlation-ID. Dropping message.");
-                return; // Stop processing if Correlation ID is missing
-            }
+            //if(!context.Headers.ContainsKey("X-Correlation-ID"))
+            //{
+            //    Console.WriteLine("[ValidationMiddleware] Missing required header: X-Correlation-ID. Dropping message.");
+            //    return; // Stop processing if Correlation ID is missing
+            //}
 
             Console.WriteLine("[ValidationMiddleware] Message validated successfully.");
             await next(); // Continue to the next middleware

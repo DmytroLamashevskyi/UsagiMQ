@@ -6,43 +6,65 @@
     /// </summary>
     public class UsagiMQMiddlewarePipeline
     {
-        private readonly List<Func<MessageContext, Func<Task>, Task>> _middlewareComponents = new();
+        private readonly List<Func<MessageContext, Func<Task>, Task>> _beforeProcessing = new();
+        private readonly List<Func<MessageContext, Func<Task>, Task>> _afterProcessing = new();
 
         /// <summary>
-        /// Adds a middleware component to the pipeline.
-        /// Middleware should call the next delegate to continue processing.
+        /// Adds a middleware component that executes **before message processing**.
         /// </summary>
-        /// <typeparam name="T">The middleware type.</typeparam>
-        /// <returns>The updated instance of <see cref="UsagiMQMiddlewarePipeline"/>.</returns>
-        public UsagiMQMiddlewarePipeline Use<T>() where T : IUsagiMiddleware, new()
+        public UsagiMQMiddlewarePipeline UseBeforeProcessing<T>() where T : IUsagiMiddleware, new()
         {
-            _middlewareComponents.Add(async (context, next) =>
+            _beforeProcessing.Add(async (context, next) =>
             {
                 var middleware = new T();
                 await middleware.InvokeAsync(context, next);
             });
-
             return this;
         }
 
         /// <summary>
-        /// Executes the middleware pipeline for the given message context.
+        /// Adds a middleware component that executes **after message processing**.
         /// </summary>
-        /// <param name="context">The message context containing metadata and payload.</param>
-        /// <returns>A task that represents the execution of the middleware pipeline.</returns>
-        public async Task ExecuteAsync(MessageContext context)
+        public UsagiMQMiddlewarePipeline UseAfterProcessing<T>() where T : IUsagiMiddleware, new()
+        {
+            _afterProcessing.Add(async (context, next) =>
+            {
+                var middleware = new T();
+                await middleware.InvokeAsync(context, next);
+            });
+            return this;
+        }
+
+        /// <summary>
+        /// Executes the **before-processing** middleware pipeline.
+        /// </summary>
+        public async Task ExecuteBeforeProcessingAsync(MessageContext context)
+        {
+            await ExecutePipelineAsync(context, _beforeProcessing);
+        }
+
+        /// <summary>
+        /// Executes the **after-processing** middleware pipeline.
+        /// </summary>
+        public async Task ExecuteAfterProcessingAsync(MessageContext context)
+        {
+            await ExecutePipelineAsync(context, _afterProcessing);
+        }
+
+        /// <summary>
+        /// Runs the middleware pipeline in order.
+        /// </summary>
+        private async Task ExecutePipelineAsync(MessageContext context, List<Func<MessageContext, Func<Task>, Task>> pipeline)
         {
             var index = 0;
-
             async Task Next()
             {
-                if(index < _middlewareComponents.Count)
+                if(index < pipeline.Count)
                 {
-                    var middleware = _middlewareComponents[index++];
+                    var middleware = pipeline[index++];
                     await middleware(context, Next);
                 }
             }
-
             await Next();
         }
     }

@@ -32,7 +32,7 @@ namespace UsagiMQ.API
         /// <summary>
         /// The headers of the RabbitMQ message.
         /// </summary>
-        public IDictionary<string, object> Headers => Properties.Headers ?? new Dictionary<string, object>();
+        public IDictionary<string, object> Headers { get; private set; } = new Dictionary<string, object>();
 
         /// <summary>
         /// Extracts and deserializes the full UsagiMQ message from the RabbitMQ body.
@@ -42,6 +42,16 @@ namespace UsagiMQ.API
         public UsagiMQMessage<T> GetMessage<T>()
         {
             return UsagiMQHelper.DeserializeMessage<UsagiMQMessage<T>>(DeliveryArgs.Body.ToArray());
+        }
+
+        /// <summary>
+        /// Injects RabbitMQ metadata into the controller.
+        /// This is called automatically before processing the message.
+        /// </summary>
+        private void InjectData(BasicDeliverEventArgs args)
+        {
+            DeliveryArgs = args;
+            Headers = args.BasicProperties.Headers ?? new Dictionary<string, object>();
         }
 
         /// <summary>

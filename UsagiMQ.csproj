@@ -6,7 +6,7 @@
 		<OutputPath>bin\Release</OutputPath>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<Nullable>enable</Nullable>
-		<Version>0.0.6</Version>
+		<Version>0.0.7</Version>
 		<Authors>Dmytro Lamashevskyi</Authors>
 		<PackageId>UsagiMQ</PackageId>
 		<Description>A lightweight RabbitMQ framework for ASP.NET Core.</Description>

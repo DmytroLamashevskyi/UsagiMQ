@@ -3,9 +3,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
+using System.Reflection;
+using UsagiMQ.API;
 using UsagiMQ.Configuration;
+using UsagiMQ.Core.Attributes;
 using UsagiMQ.Core.Consumers;
 using UsagiMQ.Core.Middleware;
+using UsagiMQ.Core.Utils;
 
 namespace UsagiMQ.Extensions
 {
@@ -28,16 +32,17 @@ namespace UsagiMQ.Extensions
             configure(options);
 
             // Load UsagiMQ settings from configuration
-            services.AddOptions<UsagiMQSettings>()
-                    .Configure<IConfiguration>((settings, config) =>
-                    {
-                        if(!string.IsNullOrEmpty(options.SettingsSection))
-                        {
-                            config.GetSection(options.SettingsSection).Bind(settings);
-                        }
-                    });
+            services.Configure<UsagiMQSettings>(settings =>
+            {
+                if(!string.IsNullOrEmpty(options.SettingsSection))
+                {
+                    var config = services.BuildServiceProvider().GetRequiredService<IConfiguration>();
+                    config.GetSection(options.SettingsSection).Bind(settings);
+                }
+            });
 
             services.AddSingleton(sp => sp.GetRequiredService<IOptions<UsagiMQSettings>>().Value);
+
             // Register RabbitMQ Connection Factory
             services.AddSingleton<IConnectionFactory>(sp =>
             {
@@ -56,22 +61,19 @@ namespace UsagiMQ.Extensions
             });
 
             // Register RabbitMQ Connection
-            services.AddSingleton<IConnection>(sp =>
+            services.AddSingleton(sp =>
             {
                 var factory = sp.GetRequiredService<IConnectionFactory>();
-                return factory.CreateConnectionAsync().GetAwaiter().GetResult();
+                return factory.CreateConnectionAsync().Result;
             });
-
-            // Register UsagiMQ Configuration Provider
-            services.AddSingleton<UsagiMQConfigurationProvider>();
 
             // Register Middleware Pipeline
             var middlewarePipeline = new UsagiMQMiddlewarePipeline();
             options.MiddlewareConfig?.Invoke(middlewarePipeline);
             services.AddSingleton(middlewarePipeline);
-            services.AddSingleton<UsagiMQProcessor>();
 
-            services.AddSingleton<IUsagiConsumerManager, UsagiConsumerManager>();
+            services.AddSingleton<UsagiMQProcessor>();
+            services.AddRabbitConsumers();
 
             // Enable Dead Letter Exchange (DLX) if configured
             if(options.IsEnabledDLX)
@@ -86,66 +88,12 @@ namespace UsagiMQ.Extensions
         }
 
         /// <summary>
-        /// Configures UsagiMQ runtime services after application startup.
+        /// Automatically registers all Consumers that have the [RabbitConsumer] attribute across all loaded assemblies.
         /// </summary>
-        /// <param name="app">The application builder.</param>
-        /// <returns>The modified <see cref="IApplicationBuilder"/> for chaining.</returns>
-        public static IApplicationBuilder UseUsagiMQApp(this IApplicationBuilder app)
+        public static IServiceCollection AddRabbitConsumers(this IServiceCollection services)
         {
-            return app;
-        }
-    }
-
-    /// <summary>
-    /// Provides configuration options for UsagiMQ.
-    /// </summary>
-    public class UsagiMQOptions
-    {
-        /// <summary>
-        /// The section name in `appsettings.json` that contains UsagiMQ settings.
-        /// </summary>
-        public string? SettingsSection { get; private set; }
-
-        /// <summary>
-        /// The middleware configuration action.
-        /// </summary>
-        public Action<UsagiMQMiddlewarePipeline>? MiddlewareConfig { get; private set; }
-
-        /// <summary>
-        /// Indicates whether Dead Letter Exchange (DLX) is enabled.
-        /// </summary>
-        public bool IsEnabledDLX { get; private set; }
-
-        /// <summary>
-        /// Binds UsagiMQ settings from the specified configuration section.
-        /// </summary>
-        /// <param name="section">The section name in the configuration file.</param>
-        /// <returns>The modified <see cref="UsagiMQOptions"/> instance.</returns>
-        public UsagiMQOptions BindSettings(string section)
-        {
-            SettingsSection = section;
-            return this;
-        }
-
-        /// <summary>
-        /// Configures custom middleware for message processing.
-        /// </summary>
-        /// <param name="middlewareConfig">The middleware configuration action.</param>
-        /// <returns>The modified <see cref="UsagiMQOptions"/> instance.</returns>
-        public UsagiMQOptions UseCustomMiddleware(Action<UsagiMQMiddlewarePipeline> middlewareConfig)
-        {
-            MiddlewareConfig = middlewareConfig;
-            return this;
-        }
-
-        /// <summary>
-        /// Enables Dead Letter Exchange (DLX) functionality.
-        /// </summary>
-        /// <returns>The modified <see cref="UsagiMQOptions"/> instance.</returns>
-        public UsagiMQOptions EnableDLX()
-        {
-            IsEnabledDLX = true;
-            return this;
+            AssemblyScanner.FindConsumers().ForEach(consumerType => services.AddScoped(consumerType));
+            return services;
         }
     }
 }

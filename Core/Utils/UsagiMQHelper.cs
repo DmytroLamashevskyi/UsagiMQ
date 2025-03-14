@@ -33,30 +33,6 @@ namespace UsagiMQ.Core.Utils
         }
 
         /// <summary>
-        /// Converts RabbitMQ headers into a dictionary with string keys and object values.
-        /// </summary>
-        /// <param name="properties">The RabbitMQ basic properties.</param>
-        /// <returns>A dictionary containing extracted headers.</returns>
-        public static Dictionary<string, object> ConvertHeaders(IBasicProperties properties)
-        {
-            var headers = new Dictionary<string, object>();
-
-            if(properties.Headers != null)
-            {
-                foreach(var header in properties.Headers)
-                {
-                    headers[header.Key] = header.Value switch
-                    {
-                        byte[] byteArray => Encoding.UTF8.GetString(byteArray),
-                        _ => header.Value
-                    };
-                }
-            }
-
-            return headers;
-        }
-
-        /// <summary>
         /// Sets RabbitMQ headers for a message.
         /// </summary>
         /// <param name="properties">The message properties.</param>
@@ -73,29 +49,21 @@ namespace UsagiMQ.Core.Utils
         }
 
         /// <summary>
-        /// Converts a dynamic content object to the specified parameter type.
+        /// Конвертирует `dynamic content` в нужный тип `parameterType`.
         /// </summary>
-        /// <param name="content">The dynamic content received from the message.</param>
-        /// <param name="parameterType">The target type to convert to.</param>
-        /// <returns>The converted object.</returns>
-        public static object? ConvertToType(dynamic content, Type parameterType)
+        internal static object ConvertToType(dynamic content, Type parameterType)
         {
             try
             {
                 if(content == null)
-                    return null;
+                    return Activator.CreateInstance(parameterType) ?? throw new InvalidOperationException($"Cannot create instance of {parameterType}");
 
-                // Если контент уже нужного типа, возвращаем его напрямую
-                if(parameterType.IsAssignableFrom(content.GetType()))
-                    return content;
-
-                // Преобразуем в JSON, а затем десериализуем в нужный тип
-                var json = JsonSerializer.Serialize(content);
-                return JsonSerializer.Deserialize(json, parameterType);
+                string json = JsonSerializer.Serialize(content);
+                return JsonSerializer.Deserialize(json, parameterType) ?? throw new InvalidOperationException($"Failed to deserialize content to {parameterType}");
             }
             catch(Exception ex)
             {
-                throw new InvalidOperationException($"[UsagiMQHelper] Failed to convert content to type {parameterType.Name}", ex);
+                throw new InvalidOperationException($"Error converting content to {parameterType}: {ex.Message}", ex);
             }
         }
     }

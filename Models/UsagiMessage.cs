@@ -18,13 +18,13 @@ namespace UsagiMQ.Models
         /// The action type of the message (e.g., Create, Update, Delete, Read).
         /// </summary>
         [JsonPropertyName("action")]
-        public required string Action { get; set; }
+        public string Action { get; set; }
 
         /// <summary>
         /// The timestamp when the message was created (in Unix time format).
         /// </summary>
         [JsonPropertyName("timestamp")]
-        public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        public double Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
         /// <summary>
         /// The ID of the company associated with the message.
@@ -42,7 +42,7 @@ namespace UsagiMQ.Models
         /// The payload data associated with the message.
         /// </summary>
         [JsonPropertyName("data")]
-        public required T Data { get; set; }
+        public T Data { get; set; }
 
         /// <summary>
         /// Initializes a new instance of <see cref="UsagiMQMessage{T}"/>.
